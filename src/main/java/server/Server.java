@@ -119,8 +119,7 @@ public class Server {
                 boolean xmlTest = false;
                 String xmlDoc = "";
                 while (true) {
-                    str = in.readLine();
-                   System.out.println("\n stoped" + xmlDoc + "\n stoped");
+                    str = in.readLine();  
                     if (str.equals("exit")) {
                         break;
                     }
@@ -132,13 +131,14 @@ public class Server {
                             if (str.equals("end")) {
                                 logger.info("xml получен");
                                 out.println(xmlServerMessage(xmlDoc));
+								System.out.print(xmlDoc);
+								System.out.print(xmlServerMessage(xmlDoc));
                                 logger.info("ответный xml отправлен");
                                 break;
                             }
                             if (!str.equals("start")) {
                             xmlDoc += str + "\n";}
                         }
-                        System.out.println("\n stoped" + xmlDoc + "\n stoped");
                         xmlDoc="";
 
                     }
@@ -156,7 +156,6 @@ public class Server {
          * Формирует из полученного xml ответ пользователю
          */
         public String xmlServerMessage(String xmlIn) throws ImpossibleModificationException, JDOMException {
-            System.out.println(xmlIn);
             String name = null;
             try {
                 SAXBuilder builder = new SAXBuilder();
@@ -165,11 +164,10 @@ public class Server {
                 List list = rootNode.getChildren("user");
                 Element node = (Element) list.get(0);
                 name = node.getChildText("name");
-                System.out.println(name);
             } catch (IOException io) {
-                System.out.println(io.getMessage());
+                logger.error(io.getMessage());
             } catch (JDOMException jdomex) {
-                System.out.println(jdomex.getMessage());
+                logger.error(jdomex.getMessage());
             }
             SimpleDateFormat dt = new SimpleDateFormat("dd.MM.yyyy HH:mm:ss");
             Date dateOut = new Date();
@@ -184,7 +182,6 @@ public class Server {
                             .set(dateString)
                             .up()
             ).xml();
-            System.out.println(xmlOut);
             logger.info("ответный xml для " + name + " создан");
             return xmlOut;
         }
