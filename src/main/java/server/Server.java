@@ -1,5 +1,7 @@
 package server;
 
+import org.apache.log4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -13,8 +15,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.xembly.Directives;
 import org.xembly.ImpossibleModificationException;
 import org.xembly.Xembler;
@@ -23,92 +23,73 @@ import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
 
-/**
- * Обеспечивает работу программы в режиме сервера
- *
- * @author Влад
- */
 public class Server {
-
+    final static Logger logger = Logger.getLogger(Server.class);
     /**
-     * Специальная "обёртка" для ArrayList, которая обеспечивает доступ к
-     * массиву из разных нитей
+     * Специальная "обёртка" для ArrayList, которая обеспечивает доступ к массиву
      */
     private List<Connection> connections
             = Collections.synchronizedList(new ArrayList<Connection>());
     private ServerSocket server;
-
     /**
      * Конструктор создаёт сервер. Затем для каждого подключения создаётся
      * объект Connection и добавляет его в список подключений.
      */
     public Server() {
         try {
-            server = new ServerSocket(Const.Port);
-
+            server = new ServerSocket(4444);
+            System.out.print("Сервер запущен");
             while (true) {
                 Socket socket = server.accept();
-
                 // Создаём объект Connection и добавляем его в список
                 Connection con = new Connection(socket);
                 connections.add(con);
-
                 // Инициализирует нить и запускает метод run(),
                 // которая выполняется одновременно с остальной программой
                 con.start();
-
             }
         } catch (IOException e) {
+            logger.error(e + " неудолось использовать socket");
             e.printStackTrace();
         } finally {
             closeAll();
         }
     }
-
     /**
      * Закрывает все потоки всех соединений а также серверный сокет
      */
     private void closeAll() {
         try {
             server.close();
-
             // Перебор всех Connection и вызов метода close() для каждого. Блок
-            // synchronized {} необходим для правильного доступа к одним данным
-            // их разных нитей
+            // synchronized {} необходим для правильного доступа к данным
             synchronized (connections) {
                 Iterator<Connection> iter = connections.iterator();
                 while (iter.hasNext()) {
-                    ((Connection) iter.next()).close();
+                    iter.next().close();
                 }
             }
         } catch (Exception e) {
-            System.err.println("Потоки не были закрыты!");
+            logger.error(e + " Потоки не были закрыты!");
+            //System.err.println("Потоки не были закрыты!");
         }
     }
-
     /**
-     * Класс содержит данные, относящиеся к конкретному подключению:
-     * <ul>
-     * <li>имя пользователя</li>
-     * <li>сокет</li>
-     * <li>входной поток BufferedReader</li>
-     * <li>выходной поток PrintWriter</li>
-     * </ul>
+     * Класс содержит данные, относящиеся к конкретному подключению
+     * имя пользователя
+     * сокет
+     * входной поток BufferedReader
+     * выходной поток PrintWriter<
+     * <p>
      * Расширяет Thread и в методе run() получает информацию от пользователя и
      * пересылает её другим
-     *
-     * @author Влад
      */
     private class Connection extends Thread {
-
         private BufferedReader in;
         private PrintWriter out;
         private Socket socket;
-
         /**
-         * Инициализирует поля объекта и получает имя пользователя
-         *
-         * @param socket сокет, полученный из server.accept()
+         * Инициализируются поля объекта
          */
         public Connection(Socket socket) {
             this.socket = socket;
@@ -117,85 +98,74 @@ public class Server {
                         socket.getInputStream()));
                 out = new PrintWriter(socket.getOutputStream(), true);
             } catch (IOException e) {
+                logger.error(e + " не удалось подключится");
                 e.printStackTrace();
                 close();
             }
         }
 
         /**
-         * Запрашивает имя пользователя и ожидает от него сообщений. При
-         * получении каждого сообщения, оно вместе с именем пользователя
-         * пересылается всем остальным.
+         *
          *
          * @see java.lang.Thread#run()
          */
         @Override
         public void run() {
             try {
-                //System.out.println("тест строка3");
+                logger.info("Пользователь подключен");
+                out.println("Welcome to SberTest server");
                 String str = "";
-                //int duplo = connections.size() - 1;
-                //System.out.println("sssss " + connections + " ALOO" + duplo);
-                str = in.readLine();
-                out.println("Добро пожаловать на сервер SberTest");
                 // Отправляем всем клиентам сообщение о том, что зашёл новый пользователь
-
                 boolean xmlTest = false;
                 String xmlDoc = "";
                 while (true) {
-                    //System.out.println("тест строка2");
                     str = in.readLine();
-                    while (xmlTest = true) {
-                        str = in.readLine();
-                        //System.out.println("тест строка1");
-                        if (str.equals("end")) {
-                            out.println(xmlSrverMessage(xmlDoc));
-                            //System.out.println(xmlDoc);
-                            xmlTest = false;
-                            //System.out.println(xmlDoc);
-                            break;
-                        }
-                        xmlDoc += "\n" + str;
-                    }
+                   System.out.println("\n stoped" + xmlDoc + "\n stoped");
                     if (str.equals("exit")) {
                         break;
                     }
                     if (str.equals("start")) {
+                        logger.info("получение xml");
                         xmlTest = true;
-                    }
+                        while (xmlTest = true) {
+                            str = in.readLine();
+                            if (str.equals("end")) {
+                                logger.info("xml получен");
+                                out.println(xmlServerMessage(xmlDoc));
+                                logger.info("ответный xml отправлен");
+                                break;
+                            }
+                            if (!str.equals("start")) {
+                            xmlDoc += str + "\n";}
+                        }
+                        System.out.println("\n stoped" + xmlDoc + "\n stoped");
+                        xmlDoc="";
 
+                    }
                     // Отправляем всем клиентам очередное сообщение
-                    // sync
                 }
 
-                // sync
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (ImpossibleModificationException ex) {
-                Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (JDOMException ex) {
-                Logger.getLogger(Server.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IOException | ImpossibleModificationException | JDOMException e) {
+                logger.error(e);
+                //e.printStackTrace();
             } finally {
                 close();
             }
         }
-
-        public String xmlSrverMessage(String xmlIn) throws ImpossibleModificationException, JDOMException {
+        /**
+         * Формирует из полученного xml ответ пользователю
+         */
+        public String xmlServerMessage(String xmlIn) throws ImpossibleModificationException, JDOMException {
+            System.out.println(xmlIn);
             String name = null;
-            String secondname = null;
-            String message = null;
-            String dateIn = null;
             try {
                 SAXBuilder builder = new SAXBuilder();
-                Document document = (Document) builder.build(new StringReader(xmlIn));
+                Document document = builder.build(new StringReader(xmlIn));
                 Element rootNode = document.getRootElement();
                 List list = rootNode.getChildren("user");
                 Element node = (Element) list.get(0);
                 name = node.getChildText("name");
-                secondname = node.getChildText("secondname");
-                message = node.getChildText("message");
-                dateIn = node.getChildText("date");
-                System.out.println("");
+                System.out.println(name);
             } catch (IOException io) {
                 System.out.println(io.getMessage());
             } catch (JDOMException jdomex) {
@@ -214,10 +184,10 @@ public class Server {
                             .set(dateString)
                             .up()
             ).xml();
-            //System.out.println(xmlOut);
+            System.out.println(xmlOut);
+            logger.info("ответный xml для " + name + " создан");
             return xmlOut;
         }
-
         /**
          * Закрывает входной и выходной потоки и сокет
          */
@@ -226,7 +196,6 @@ public class Server {
                 in.close();
                 out.close();
                 socket.close();
-
                 // Если больше не осталось соединений, закрываем всё, что есть и
                 // завершаем работу сервера
                 connections.remove(this);
@@ -235,7 +204,8 @@ public class Server {
                     System.exit(0);
                 }
             } catch (Exception e) {
-                System.err.println("Потоки не были закрыты!");
+                logger.info(e + "ошибка при выключении сервера");
+                //System.err.println("Потоки не были закрыты!");
             }
         }
     }
